@@ -1,0 +1,16 @@
+{
+  "name": "ניהול חשבונות הבית",
+  "short_name": "חשבונות הבית",
+  "description": "אפליקציה לניהול ומעקב חשבונות הבית והתחשבנות בין בני זוג",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1117",
+  "theme_color": "#6366f1",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

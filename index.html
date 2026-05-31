@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>ניהול חשבונות הבית</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="חשבונות הבית" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar (desktop) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">🏠</div>
+        <div class="brand-text">
+          <h1>חשבונות הבית</h1>
+          <span>ניהול ומעקב</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span><span class="nav-label">סקירה כללית</span></button>
+        <button class="nav-item" data-view="bills"><span class="nav-icon">🧾</span><span class="nav-label">חשבונות חודשיים</span></button>
+        <button class="nav-item" data-view="settlement"><span class="nav-icon">🤝</span><span class="nav-label">התחשבנות</span></button>
+        <button class="nav-item" data-view="categories"><span class="nav-icon">🏷️</span><span class="nav-label">קטגוריות</span></button>
+        <button class="nav-item" data-view="reports"><span class="nav-icon">📈</span><span class="nav-label">דוחות</span></button>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙️</span><span class="nav-label">הגדרות</span></button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="user-chip js-user" title="החלפת משתמש">
+          <span class="user-chip-av js-user-av">👤</span>
+          <span class="user-chip-text"><small>מחובר/ת כ־</small><strong class="js-user-name">—</strong></span>
+          <span class="user-chip-switch">⇄</span>
+        </button>
+        <button class="theme-toggle js-theme" title="החלפת מצב תצוגה">
+          <span class="theme-icon">🌙</span><span class="theme-label">מצב כהה</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Mobile app bar -->
+      <header class="appbar">
+        <div class="appbar-brand">
+          <div class="brand-logo">🏠</div>
+          <div class="brand-text"><h1>חשבונות הבית</h1></div>
+        </div>
+        <div class="appbar-actions">
+          <button class="icon-btn js-user" title="החלפת משתמש"><span class="icon-av js-user-av">👤</span></button>
+          <button class="icon-btn js-theme" title="מצב תצוגה"><span class="theme-icon">🌙</span><span class="theme-label" hidden></span></button>
+          <button class="icon-btn js-settings" title="הגדרות">⚙️</button>
+        </div>
+      </header>
+
+      <!-- Controls: month + add -->
+      <div class="subbar">
+        <div class="month-picker">
+          <button class="month-nav" id="prevMonth" aria-label="חודש קודם">‹</button>
+          <div class="month-current"><span id="monthLabel">—</span></div>
+          <button class="month-nav" id="nextMonth" aria-label="חודש הבא">›</button>
+        </div>
+        <button class="btn btn-primary add-btn js-add"><span>＋</span> הוצאה חדשה</button>
+      </div>
+
+      <main class="content-scroll">
+        <div class="content" id="content"></div>
+      </main>
+    </div>
+
+    <!-- Bottom tab bar (mobile) -->
+    <nav class="tabbar">
+      <button class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span><span class="nav-label">סקירה</span></button>
+      <button class="nav-item" data-view="bills"><span class="nav-icon">🧾</span><span class="nav-label">חשבונות</span></button>
+      <button class="nav-item" data-view="settlement"><span class="nav-icon">🤝</span><span class="nav-label">התחשבנות</span></button>
+      <button class="nav-item" data-view="categories"><span class="nav-icon">🏷️</span><span class="nav-label">קטגוריות</span></button>
+      <button class="nav-item" data-view="reports"><span class="nav-icon">📈</span><span class="nav-label">דוחות</span></button>
+    </nav>
+
+    <!-- Floating action button (mobile) -->
+    <button class="fab js-add" aria-label="הוצאה חדשה">＋</button>
+  </div>
+
+  <!-- Bill Modal -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" id="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="modalTitle">הוצאה חדשה</h2>
+        <button class="modal-close" id="modalClose" aria-label="סגירה">✕</button>
+      </div>
+      <form id="billForm" class="modal-body">
+        <input type="hidden" id="billId" />
+        <div class="form-row">
+          <label for="billCategory">קטגוריה</label>
+          <select id="billCategory" required></select>
+        </div>
+        <div class="form-row">
+          <label for="billName">שם / תיאור</label>
+          <input type="text" id="billName" placeholder="לדוגמה: חשמל דו-חודשי" />
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="billAmount">סכום (₪)</label>
+            <input type="number" id="billAmount" min="0" step="0.01" required placeholder="0" inputmode="decimal" />
+          </div>
+          <div class="form-row">
+            <label for="billDue">תאריך לתשלום</label>
+            <input type="date" id="billDue" />
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="billType">סוג</label>
+            <select id="billType">
+              <option value="expense">הוצאה</option>
+              <option value="income">הכנסה</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="billStatus">סטטוס</label>
+            <select id="billStatus">
+              <option value="unpaid">לא שולם</option>
+              <option value="paid">שולם</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid" id="payRow">
+          <div class="form-row">
+            <label for="billPaidBy">שולם על ידי</label>
+            <select id="billPaidBy"></select>
+          </div>
+          <div class="form-row">
+            <label for="billSplit">אופן חלוקה</label>
+            <select id="billSplit">
+              <option value="equal">חלוקה שווה (חצי-חצי)</option>
+              <option value="single">על חשבון אדם אחד</option>
+              <option value="custom">חלוקה מותאמת (%)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" id="splitSingleRow" style="display:none">
+          <label for="billSplitTarget">על חשבון</label>
+          <select id="billSplitTarget"></select>
+        </div>
+        <div class="form-row" id="splitCustomRow" style="display:none">
+          <label>חלוקה מותאמת (אחוזים)</label>
+          <div id="splitCustomInputs" class="split-custom"></div>
+          <small class="split-hint" id="splitHint"></small>
+        </div>
+        <div class="form-row checkbox-row">
+          <label class="checkbox">
+            <input type="checkbox" id="billRecurring" />
+            <span>חוזר כל חודש (קבוע)</span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label for="billNote">הערה</label>
+          <textarea id="billNote" rows="2" placeholder="הערות נוספות (אופציונלי)"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="deleteBillBtn" style="display:none">מחיקה</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" id="cancelBtn">ביטול</button>
+          <button type="submit" class="btn btn-primary">שמירה</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div class="modal-backdrop" id="catModalBackdrop">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="catModalTitle">קטגוריה חדשה</h2>
+        <button class="modal-close" id="catModalClose" aria-label="סגירה">✕</button>
+      </div>
+      <form id="catForm" class="modal-body">
+        <input type="hidden" id="catId" />
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="catIcon">אייקון</label>
+            <input type="text" id="catIcon" maxlength="2" placeholder="🏠" />
+          </div>
+          <div class="form-row">
+            <label for="catColor">צבע</label>
+            <input type="color" id="catColor" value="#6366f1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="catName">שם הקטגוריה</label>
+          <input type="text" id="catName" required placeholder="לדוגמה: ביטוח" />
+        </div>
+        <div class="form-row">
+          <label for="catBudget">תקציב חודשי (₪) — אופציונלי</label>
+          <input type="number" id="catBudget" min="0" step="0.01" placeholder="0" inputmode="decimal" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="deleteCatBtn" style="display:none">מחיקה</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" id="catCancelBtn">ביטול</button>
+          <button type="submit" class="btn btn-primary">שמירה</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Person edit modal -->
+  <div class="modal-backdrop" id="personModalBackdrop">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="personModalTitle">עריכת בן/בת זוג</h2>
+        <button class="modal-close" id="personModalClose" aria-label="סגירה">✕</button>
+      </div>
+      <form id="personForm" class="modal-body">
+        <input type="hidden" id="personId" />
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="personIcon">אווטאר</label>
+            <input type="text" id="personIcon" maxlength="2" placeholder="🙂" />
+          </div>
+          <div class="form-row">
+            <label for="personColor">צבע</label>
+            <input type="color" id="personColor" value="#6366f1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="personName">שם</label>
+          <input type="text" id="personName" required placeholder="שם" />
+        </div>
+        <div class="modal-actions">
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" id="personCancelBtn">ביטול</button>
+          <button type="submit" class="btn btn-primary">שמירה</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Welcome / profile entry screen -->
+  <div class="welcome" id="welcome">
+    <div class="welcome-card">
+      <div class="welcome-logo">🏠</div>
+      <h1>ניהול חשבונות הבית</h1>
+      <p>מי נכנס/ת כעת?</p>
+      <div class="welcome-profiles" id="welcomeProfiles"></div>
+      <button class="welcome-skip" id="welcomeSkip">המשך ללא בחירה</button>
+    </div>
+  </div>
+
+  <!-- Install banner -->
+  <div class="install-banner" id="installBanner">
+    <span>📲 התקינו את האפליקציה על המכשיר</span>
+    <div>
+      <button class="btn btn-primary" id="installBtn">התקנה</button>
+      <button class="btn btn-ghost" id="installDismiss">לא עכשיו</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
