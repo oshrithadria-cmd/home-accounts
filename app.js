@@ -55,6 +55,7 @@
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (e) { console.warn("save failed", e); }
+    pushCloud();
   }
 
   /* ---------- Helpers ---------- */
@@ -523,6 +524,30 @@
         <div id="peopleRows"></div>
       </div>
       <div class="panel">
+        <div class="panel-head">
+          <h3>סנכרון בענן (שיתוף בין מכשירים)</h3>
+          <span class="badge"><span id="cloudDot" style="width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--text-mut)"></span> <span id="cloudStatus">מנותק</span></span>
+        </div>
+        <p style="color:var(--text-soft);font-size:13.5px;line-height:1.7;margin-bottom:14px">
+          חיבור ל-Firebase יאפשר לאושי ונת לראות את אותם הנתונים בכל המכשירים בזמן אמת.
+          הזינו את אותו <strong>קוד בית משותף</strong> ואת אותו קונפיג בשני המכשירים.
+        </p>
+        ${HARDCODED_FIREBASE_CONFIG ? "" : `
+        <div class="form-row">
+          <label for="cloudCfg">קונפיג Firebase (מהקונסולה)</label>
+          <textarea id="cloudCfg" rows="5" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "appId": "..." }'></textarea>
+        </div>`}
+        <div class="form-row">
+          <label for="cloudCode">קוד בית משותף</label>
+          <input type="text" id="cloudCode" placeholder="לדוגמה: oshi-nat-2026" />
+        </div>
+        <div class="modal-actions" style="margin-top:4px">
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" id="cloudDisconnect">ניתוק</button>
+          <button class="btn btn-primary" id="cloudConnect">חיבור / סנכרון</button>
+        </div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h3>ניהול נתונים</h3></div>
         <div class="setting-row">
           <div><strong>גיבוי נתונים</strong><div class="desc">ייצוא כל הנתונים לקובץ JSON</div></div>
@@ -545,8 +570,8 @@
       <div class="panel">
         <div class="panel-head"><h3>אודות</h3></div>
         <p style="color:var(--text-soft);font-size:14px;line-height:1.7">
-          אפליקציה לניהול ומעקב חשבונות הבית. כל הנתונים נשמרים מקומית בדפדפן שלכם (localStorage) — שום מידע לא נשלח לשרת.
-          ניתן לעבוד גם ללא חיבור לאינטרנט. מומלץ לבצע גיבוי מעת לעת.
+          אפליקציה לניהול ומעקב חשבונות הבית. הנתונים נשמרים מקומית בדפדפן (localStorage) ועובדים גם אופליין.
+          אם מפעילים סנכרון בענן — הנתונים מסונכרנים בין כל המכשירים בזמן אמת. מומלץ לבצע גיבוי מעת לעת.
         </p>
       </div>
     `;
@@ -568,6 +593,32 @@
     $("#importFile").addEventListener("change", importData);
     $("#cloneBtn").addEventListener("click", cloneRecurring);
     $("#resetBtn").addEventListener("click", resetAll);
+
+    if ($("#cloudCfg") && state.settings.cloudConfig) $("#cloudCfg").value = JSON.stringify(state.settings.cloudConfig, null, 2);
+    if ($("#cloudCode")) $("#cloudCode").value = state.settings.homeCode || "";
+    setCloudStatus(cloudStatus);
+    $("#cloudConnect").addEventListener("click", () => {
+      const code = $("#cloudCode").value.trim();
+      if (!code) { toast("נא להזין קוד בית משותף"); return; }
+      if (!HARDCODED_FIREBASE_CONFIG) {
+        const cfg = parseFirebaseConfig($("#cloudCfg").value);
+        if (!cfg || !cfg.projectId || !cfg.apiKey) { toast("קונפיג Firebase לא תקין"); return; }
+        state.settings.cloudConfig = cfg;
+      }
+      state.settings.homeCode = code;
+      state.settings.cloudEnabled = true;
+      save();
+      initCloud();
+      toast("מתחבר לענן…");
+    });
+    $("#cloudDisconnect").addEventListener("click", () => {
+      state.settings.cloudEnabled = false;
+      save();
+      if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} cloudUnsub = null; }
+      cloudDoc = null;
+      setCloudStatus("off");
+      toast("הסנכרון נותק");
+    });
   }
 
   /* ---------- Charts ---------- */
@@ -1051,11 +1102,88 @@
     });
   }
 
+  /* ---------- Cloud sync (Firebase Firestore) ---------- */
+  // אם תרצי שהקונפיג יהיה מובנה (כדי שלא צריך להזין אותו בכל מכשיר), הדביקי אותו כאן:
+  const HARDCODED_FIREBASE_CONFIG = null; // לדוגמה: { apiKey: "...", projectId: "...", appId: "...", authDomain: "..." }
+
+  let cloudDoc = null, cloudUnsub = null, applyingRemote = false, pushTimer = null, cloudStatus = "off";
+
+  function getCloudConfig() {
+    if (HARDCODED_FIREBASE_CONFIG) return HARDCODED_FIREBASE_CONFIG;
+    return state.settings.cloudConfig || null;
+  }
+
+  function parseFirebaseConfig(text) {
+    if (!text) return null;
+    const m = String(text).match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { return JSON.parse(m[0]); } catch (e) {}
+    try { return (new Function("return (" + m[0] + ")"))(); } catch (e) {}
+    return null;
+  }
+
+  function setCloudStatus(s) {
+    cloudStatus = s;
+    const map = {
+      off: { t: "מנותק", c: "var(--text-mut)" },
+      connecting: { t: "מתחבר…", c: "var(--warn)" },
+      connected: { t: "מחובר ומסונכרן ✓", c: "var(--success)" },
+      error: { t: "שגיאת חיבור — בדקי קונפיג/קוד", c: "var(--danger)" },
+    };
+    const el = $("#cloudStatus");
+    if (el) { el.textContent = map[s].t; el.style.color = map[s].c; }
+    const dot = $("#cloudDot");
+    if (dot) dot.style.background = map[s].c;
+  }
+
+  function initCloud() {
+    if (typeof firebase === "undefined") { setCloudStatus("off"); return; }
+    const cfg = getCloudConfig();
+    const code = (state.settings.homeCode || "").trim();
+    if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} cloudUnsub = null; }
+    cloudDoc = null;
+    if (!cfg || !code || !state.settings.cloudEnabled) { setCloudStatus("off"); return; }
+    setCloudStatus("connecting");
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(cfg);
+      const db = firebase.firestore();
+      cloudDoc = db.collection("households").doc(code);
+      cloudUnsub = cloudDoc.onSnapshot((snap) => {
+        if (snap.exists && snap.data() && snap.data().payload) {
+          try {
+            const data = JSON.parse(snap.data().payload);
+            applyingRemote = true;
+            if (Array.isArray(data.people) && data.people.length) state.people = data.people;
+            if (Array.isArray(data.categories)) state.categories = data.categories;
+            if (Array.isArray(data.bills)) state.bills = data.bills;
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+            applyingRemote = false;
+            render();
+          } catch (e) { applyingRemote = false; }
+        } else {
+          pushCloud(true);
+        }
+        setCloudStatus("connected");
+      }, (err) => { console.warn("cloud", err); setCloudStatus("error"); });
+    } catch (e) { console.warn("cloud init", e); setCloudStatus("error"); }
+  }
+
+  function pushCloud(immediate) {
+    if (!cloudDoc || applyingRemote || !state.settings.cloudEnabled) return;
+    clearTimeout(pushTimer);
+    const doPush = () => {
+      const payload = JSON.stringify({ people: state.people, categories: state.categories, bills: state.bills });
+      cloudDoc.set({ payload, updatedAt: Date.now() }).catch((e) => console.warn("push", e));
+    };
+    if (immediate) doPush(); else pushTimer = setTimeout(doPush, 700);
+  }
+
   function init() {
     applyTheme();
     bindGlobal();
     render();
     setupPWA();
+    initCloud();
     if (!state.settings.welcomed) showWelcome();
   }
 
