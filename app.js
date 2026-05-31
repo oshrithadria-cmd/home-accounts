@@ -1103,8 +1103,17 @@
   }
 
   /* ---------- Cloud sync (Firebase Firestore) ---------- */
-  // אם תרצי שהקונפיג יהיה מובנה (כדי שלא צריך להזין אותו בכל מכשיר), הדביקי אותו כאן:
-  const HARDCODED_FIREBASE_CONFIG = null; // לדוגמה: { apiKey: "...", projectId: "...", appId: "...", authDomain: "..." }
+  const HARDCODED_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBt4b8ifVtGh38nuw6-ozdgu5nrbdOnu_o",
+    authDomain: "heshbonot-3e057.firebaseapp.com",
+    projectId: "heshbonot-3e057",
+    storageBucket: "heshbonot-3e057.firebasestorage.app",
+    messagingSenderId: "409779227414",
+    appId: "1:409779227414:web:e34cbb248402bd38a61e37",
+    measurementId: "G-7KFKQRMG0W",
+  };
+  // קוד בית משותף קבוע — מסנכרן אוטומטית בין כל המכשירים של אושי ונת
+  const DEFAULT_HOME_CODE = "oshi-nat-9k4mz7qx2p";
 
   let cloudDoc = null, cloudUnsub = null, applyingRemote = false, pushTimer = null, cloudStatus = "off";
 
@@ -1179,6 +1188,11 @@
   }
 
   function init() {
+    if (HARDCODED_FIREBASE_CONFIG && state.settings.cloudEnabled === undefined) {
+      state.settings.cloudEnabled = true;
+      if (!state.settings.homeCode) state.settings.homeCode = DEFAULT_HOME_CODE;
+      save();
+    }
     applyTheme();
     bindGlobal();
     render();
